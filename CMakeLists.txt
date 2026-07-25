@@ -81,6 +81,7 @@ set(XPU_CORE_SOURCES
     src/backend/backend_opengl_es.cpp
     src/backend/backend_opengl_core.cpp
     src/backend/backend_vulkan.cpp
+    src/backend/sw_rasterizer.cpp
     src/math/xpu_math.cpp
 )
 
@@ -150,6 +151,9 @@ if(XPU_BUILD_SAMPLES)
 
     add_executable(xpu_compute_demo samples/compute_demo/main.cpp)
     target_link_libraries(xpu_compute_demo PRIVATE xpu)
+
+    add_executable(xpu_render_daemon samples/render_daemon/main.cpp)
+    target_link_libraries(xpu_render_daemon PRIVATE xpu)
 endif()
 
 # --------------------------------------------------------------------
@@ -160,6 +164,10 @@ if(XPU_BUILD_TESTS)
     add_executable(xpu_test_math tests/test_math.cpp)
     target_link_libraries(xpu_test_math PRIVATE xpu)
     add_test(NAME test_math COMMAND xpu_test_math)
+
+    add_executable(xpu_test_rasterizer tests/test_rasterizer.cpp)
+    target_link_libraries(xpu_test_rasterizer PRIVATE xpu)
+    add_test(NAME test_rasterizer COMMAND xpu_test_rasterizer)
 endif()
 
 # --------------------------------------------------------------------

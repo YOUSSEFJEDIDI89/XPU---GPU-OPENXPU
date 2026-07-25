@@ -1,13 +1,23 @@
 # XPU - GNU Make build
 # Use this if CMake is not available on the target system.
-# Supports Linux, macOS (with clang), and Android NDK (with NDK_TOOLCHAIN).
+# Supports Linux, macOS (with clang), Android NDK, and Termux.
 
 CXX      ?= g++
 CC       ?= gcc
 AR       ?= ar
 
-# Auto-detect architecture for SIMD flags
+# Detect platform (Termux, Android NDK, native Linux)
+UNAME_S  := $(shell uname -s)
 UNAME_M  := $(shell uname -m)
+
+# Are we on Termux? (Android's terminal emulator)
+ifeq ($(UNAME_S),Linux)
+  ifneq (,$(wildcard /data/data/com.termux))
+    ON_TERMUX := 1
+  endif
+endif
+
+# Auto-detect architecture for SIMD flags
 ifeq ($(UNAME_M),x86_64)
     SIMD_FLAGS := -msse2 -mavx2 -mfma -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
     SIMD_SRC   := src/math/xpu_math_sse.cpp
@@ -15,9 +25,15 @@ else ifeq ($(UNAME_M),i386)
     SIMD_FLAGS := -msse2 -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
     SIMD_SRC   := src/math/xpu_math_sse.cpp
 else ifeq ($(UNAME_M),aarch64)
+    # AArch64 (modern phones, Apple Silicon, modern Pi)
     SIMD_FLAGS := -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
     SIMD_SRC   := src/math/xpu_math_neon.cpp
 else ifneq (,$(findstring arm,$(UNAME_M)))
+    # ARMv7 with NEON (older Android phones, Pi 2/3)
+    SIMD_FLAGS := -mfpu=neon -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
+    SIMD_SRC   := src/math/xpu_math_neon.cpp
+else ifeq ($(UNAME_M),armv8l)
+    # 32-bit userspace on 64-bit ARM (rare, but Termux sometimes reports this)
     SIMD_FLAGS := -mfpu=neon -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
     SIMD_SRC   := src/math/xpu_math_neon.cpp
 else
@@ -34,6 +50,7 @@ LDLIBS   ?=
 
 BUILD_DIR := build
 LIB       := $(BUILD_DIR)/libxpu.so
+RPATH     := -Wl,-rpath,$(abspath $(BUILD_DIR))
 
 CORE_SOURCES := \
     src/core/xpu_core.cpp \
@@ -46,15 +63,16 @@ CORE_SOURCES := \
     src/backend/backend_opengl_es.cpp \
     src/backend/backend_opengl_core.cpp \
     src/backend/backend_vulkan.cpp \
+    src/backend/sw_rasterizer.cpp \
     src/math/xpu_math.cpp \
     $(SIMD_SRC)
 
 CORE_OBJECTS := $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(CORE_SOURCES))
 
-SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo
-TESTS   := $(BUILD_DIR)/xpu_test_math
+SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon
+TESTS   := $(BUILD_DIR)/xpu_test_math $(BUILD_DIR)/xpu_test_rasterizer
 
-.PHONY: all clean samples tests check install
+.PHONY: all clean samples tests check install daemon
 
 all: $(LIB) samples tests
 
@@ -72,23 +90,48 @@ samples: $(SAMPLES)
 $(BUILD_DIR)/xpu_hello_triangle: samples/hello_triangle/main.cpp $(LIB)
 	@mkdir -p $(dir $@)
 	@echo "[CXX] $<"
-	$(CXX) $(CXXFLAGS) $< -L$(BUILD_DIR) -lxpu -Wl,-rpath,$(BUILD_DIR) -o $@
+	$(CXX) $(CXXFLAGS) $< -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
 
 $(BUILD_DIR)/xpu_compute_demo: samples/compute_demo/main.cpp $(LIB)
 	@mkdir -p $(dir $@)
 	@echo "[CXX] $<"
-	$(CXX) $(CXXFLAGS) $< -L$(BUILD_DIR) -lxpu -Wl,-rpath,$(BUILD_DIR) -o $@
+	$(CXX) $(CXXFLAGS) $< -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
+
+# Render daemon links the software rasterizer directly (not through libxpu)
+# because the rasterizer is currently a header-only component used by the daemon.
+# For the daemon we need sw_rasterizer.o as well.
+$(BUILD_DIR)/xpu_render_daemon: samples/render_daemon/main.cpp $(BUILD_DIR)/backend/sw_rasterizer.o $(LIB)
+	@mkdir -p $(dir $@)
+	@echo "[CXX] $<"
+	$(CXX) $(CXXFLAGS) $< $(BUILD_DIR)/backend/sw_rasterizer.o \
+	        -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
+
+# Convenience target to launch the daemon in the background
+daemon: $(BUILD_DIR)/xpu_render_daemon
+	@echo "Starting render daemon in background..."
+	@nohup $(BUILD_DIR)/xpu_render_daemon --width 640 --height 480 > render_daemon.log 2>&1 &
+	@echo "Daemon started. PID: $$!"
+	@echo "Log: render_daemon.log"
+	@echo "Output: render_output/"
+	@echo "Stop with: kill $$!"
 
 tests: $(TESTS)
 
 $(BUILD_DIR)/xpu_test_math: tests/test_math.cpp $(LIB)
 	@mkdir -p $(dir $@)
 	@echo "[CXX] $<"
-	$(CXX) $(CXXFLAGS) $< -L$(BUILD_DIR) -lxpu -Wl,-rpath,$(BUILD_DIR) -o $@
+	$(CXX) $(CXXFLAGS) $< -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
+
+$(BUILD_DIR)/xpu_test_rasterizer: tests/test_rasterizer.cpp $(BUILD_DIR)/backend/sw_rasterizer.o $(LIB)
+	@mkdir -p $(dir $@)
+	@echo "[CXX] $<"
+	$(CXX) $(CXXFLAGS) $< $(BUILD_DIR)/backend/sw_rasterizer.o -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
 
 check: tests
-	@echo "Running tests..."
+	@echo "Running math tests..."
 	@LD_LIBRARY_PATH=$(BUILD_DIR) $(BUILD_DIR)/xpu_test_math
+	@echo "Running rasterizer tests..."
+	@LD_LIBRARY_PATH=$(BUILD_DIR) $(BUILD_DIR)/xpu_test_rasterizer
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
@@ -101,4 +144,4 @@ install: $(LIB)
 	@ldconfig $(DESTDIR)/usr/local/lib 2>/dev/null || true
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) render_output render_daemon.log

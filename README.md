@@ -25,6 +25,13 @@ XPU is written in portable C++17 with C ABI exports, so it can be called from C,
 ## Features
 
 - **Modern API surface** — Pipeline state objects (PSOs), command buffers, descriptor sets, explicit synchronization. Familiar if you've used Vulkan or Direct3D 12, but simpler.
+- **REAL software rasterizer** — XPU's software backend doesn't just record draw calls, it actually rasterizes triangles into pixels. Features:
+  - Edge-function-based triangle coverage
+  - Perspective-correct barycentric interpolation
+  - Z-buffer depth testing
+  - Per-vertex color blending with smooth gradients
+  - BMP frame output (no external dependencies)
+- **Background render daemon** — `xpu_render_daemon` runs continuously, rendering a rotating 3D cube frame after frame, like a screen recorder. Useful for benchmarks and continuous rendering scenarios.
 - **Multiple backends, picked at runtime**:
   - `XPU_BACKEND_VULKAN` — fastest on modern Android / desktop Linux / Windows
   - `XPU_BACKEND_OPENGL_ES` — for older Android devices with GLES 3.0+
@@ -131,6 +138,7 @@ make CXXFLAGS="-DXPU_HAS_OPENGL_ES=1" LDFLAGS="-shared -lGLESv3 -lEGL"
 make check
 # or
 LD_LIBRARY_PATH=build ./build/xpu_test_math
+LD_LIBRARY_PATH=build ./build/xpu_test_rasterizer
 ```
 
 Expected output:
@@ -141,6 +149,54 @@ ok   : vec4_add
 ok   : vec4_sub
 ... (15 more)
 All tests passed!
+
+Non-black pixels: 1250 / 10000
+  sample 0: R=6 G=1 B=247 A=255
+  ...
+PASS: triangle rasterized successfully
+```
+
+### Run the render daemon (continuous background rendering)
+
+```bash
+# Render a rotating 3D cube continuously, save a BMP every 30 frames
+LD_LIBRARY_PATH=build ./build/xpu_render_daemon
+
+# Custom settings
+LD_LIBRARY_PATH=build ./build/xpu_render_daemon \
+    --width 1280 --height 720 \
+    --save-every 30 \
+    --out-dir my_frames
+
+# Benchmark mode (no saving, just measure FPS)
+LD_LIBRARY_PATH=build ./build/xpu_render_daemon --no-save --max-frames 1000
+
+# Run in the background (like a screen recorder service)
+nohup ./build/xpu_render_daemon --width 640 --height 480 > render.log 2>&1 &
+```
+
+The daemon produces BMP frames in `render_output/` that you can view in any image viewer or convert to video with ffmpeg:
+
+```bash
+ffmpeg -framerate 30 -i render_output/frame_%05d.bmp -c:v libx264 cube.mp4
+```
+
+### On Termux (Android)
+
+XPU compiles and runs natively on Termux. The Makefile auto-detects ARM/AArch64 and uses NEON automatically:
+
+```bash
+pkg install clang make
+git clone https://github.com/YOUSSEFJEDIDI89/XPU---GPU-OPENXPU.git
+cd XPU---GPU-OPENXPU
+make
+LD_LIBRARY_PATH=build ./build/xpu_render_daemon --width 640 --height 480
+```
+
+If you see `setlocale: LC_ALL: cannot change locale (ar_SA.UTF-8)` warnings, run:
+```bash
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
 ```
 
 ---

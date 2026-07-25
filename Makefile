@@ -69,10 +69,10 @@ CORE_SOURCES := \
 
 CORE_OBJECTS := $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(CORE_SOURCES))
 
-SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon
+SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon $(BUILD_DIR)/xpu_benchmark
 TESTS   := $(BUILD_DIR)/xpu_test_math $(BUILD_DIR)/xpu_test_rasterizer
 
-.PHONY: all clean samples tests check install daemon
+.PHONY: all clean samples tests check install daemon termux benchmark
 
 all: $(LIB) samples tests
 
@@ -114,6 +114,31 @@ daemon: $(BUILD_DIR)/xpu_render_daemon
 	@echo "Log: render_daemon.log"
 	@echo "Output: render_output/"
 	@echo "Stop with: kill $$!"
+
+# Benchmark target - measures rendering throughput
+$(BUILD_DIR)/xpu_benchmark: samples/benchmark/main.cpp $(BUILD_DIR)/backend/sw_rasterizer.o $(LIB)
+	@mkdir -p $(dir $@)
+	@echo "[CXX] $<"
+	$(CXX) $(CXXFLAGS) $< $(BUILD_DIR)/backend/sw_rasterizer.o \
+	        -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
+
+benchmark: $(BUILD_DIR)/xpu_benchmark
+	@echo "Running XPU benchmark..."
+	@LD_LIBRARY_PATH=$(BUILD_DIR) $(BUILD_DIR)/xpu_benchmark --quick
+
+# Termux-specific target: uses clang++, fixes locale, installs deps
+termux:
+	@export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+	@command -v clang++ >/dev/null 2>&1 || pkg install -y clang make
+	@$(MAKE) CXX=clang++ CC=clang
+	@LD_LIBRARY_PATH=$(BUILD_DIR) ./build/xpu_test_math
+	@LD_LIBRARY_PATH=$(BUILD_DIR) ./build/xpu_test_rasterizer
+	@echo ""
+	@echo "Termux build complete! Run the daemon:"
+	@echo "  LD_LIBRARY_PATH=build ./build/xpu_render_daemon --width 640 --height 480"
+	@echo ""
+	@echo "Run the benchmark:"
+	@echo "  LD_LIBRARY_PATH=build ./build/xpu_benchmark --quick"
 
 tests: $(TESTS)
 

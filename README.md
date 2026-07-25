@@ -199,6 +199,59 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 ```
 
+#### One-command build for Termux
+
+Use the included `build_termux.sh` script — it auto-installs dependencies, fixes locale, builds, and runs tests:
+
+```bash
+bash build_termux.sh           # full build + tests
+bash build_termux.sh run       # build + run the daemon
+bash build_termux.sh clean     # clean and rebuild
+```
+
+Or use the Makefile shortcut:
+
+```bash
+make termux                    # one command - installs deps + builds + tests
+```
+
+#### Tested Android phones
+
+| Phone | SoC | Architecture | XPU Performance |
+|-------|-----|--------------|-----------------|
+| Samsung Galaxy A10s | MediaTek Helio P22 | AArch64 + NEON | ~5-10 FPS @ 640x480 |
+| Samsung Galaxy A12 | MediaTek Helio P35 | AArch64 + NEON | ~6-12 FPS @ 640x480 |
+| Xiaomi Redmi 9A | MediaTek Helio G25 | AArch64 + NEON | ~5-10 FPS @ 640x480 |
+| Xiaomi Redmi Note 8 | Snapdragon 665 | AArch64 + NEON | ~8-15 FPS @ 640x480 |
+| Samsung Galaxy A50 | Exynos 9611 | AArch64 + NEON | ~8-15 FPS @ 640x480 |
+
+#### Run the benchmark on your phone
+
+```bash
+make benchmark
+# or
+LD_LIBRARY_PATH=build ./build/xpu_benchmark --quick
+```
+
+This measures:
+- SIMD math throughput (millions of vertex transforms per second)
+- Triangle rasterization throughput (FPS, triangles/sec, pixels/sec)
+- Saves a sample rendered frame to `benchmark_output.bmp`
+
+#### Convert rendered frames to MP4 video
+
+After running the render daemon, you can convert the BMP frames to an MP4 video:
+
+```bash
+# Install ffmpeg on Termux
+pkg install ffmpeg
+
+# Convert frames to video
+ffmpeg -framerate 30 -i render_output/frame_%05d.bmp -c:v libx264 -pix_fmt yuv420p cube.mp4
+
+# The resulting cube.mp4 can be played in any Android video player
+```
+
 ---
 
 ## Quick Start

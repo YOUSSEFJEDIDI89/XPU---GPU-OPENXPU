@@ -154,6 +154,9 @@ if(XPU_BUILD_SAMPLES)
 
     add_executable(xpu_render_daemon samples/render_daemon/main.cpp)
     target_link_libraries(xpu_render_daemon PRIVATE xpu)
+
+    add_executable(xpu_benchmark samples/benchmark/main.cpp)
+    target_link_libraries(xpu_benchmark PRIVATE xpu)
 endif()
 
 # --------------------------------------------------------------------

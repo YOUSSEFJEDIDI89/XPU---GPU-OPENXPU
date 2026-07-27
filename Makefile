@@ -65,12 +65,13 @@ CORE_SOURCES := \
     src/backend/backend_vulkan.cpp \
     src/backend/sw_rasterizer.cpp \
     src/math/xpu_math.cpp \
+    src/tensor/xpu_tensor.cpp \
     $(SIMD_SRC)
 
 CORE_OBJECTS := $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(CORE_SOURCES))
 
-SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon $(BUILD_DIR)/xpu_benchmark
-TESTS   := $(BUILD_DIR)/xpu_test_math $(BUILD_DIR)/xpu_test_rasterizer
+SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon $(BUILD_DIR)/xpu_benchmark $(BUILD_DIR)/xpu_nn_train
+TESTS   := $(BUILD_DIR)/xpu_test_math $(BUILD_DIR)/xpu_test_rasterizer $(BUILD_DIR)/xpu_test_tensor
 
 .PHONY: all clean samples tests check install daemon termux benchmark
 
@@ -106,6 +107,12 @@ $(BUILD_DIR)/xpu_render_daemon: samples/render_daemon/main.cpp $(BUILD_DIR)/back
 	$(CXX) $(CXXFLAGS) $< $(BUILD_DIR)/backend/sw_rasterizer.o \
 	        -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
 
+# Neural network training demo
+$(BUILD_DIR)/xpu_nn_train: samples/nn_train/main.cpp $(LIB)
+	@mkdir -p $(dir $@)
+	@echo "[CXX] $<"
+	$(CXX) $(CXXFLAGS) $< -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
+
 # Convenience target to launch the daemon in the background
 daemon: $(BUILD_DIR)/xpu_render_daemon
 	@echo "Starting render daemon in background..."
@@ -133,12 +140,12 @@ termux:
 	@$(MAKE) CXX=clang++ CC=clang
 	@LD_LIBRARY_PATH=$(BUILD_DIR) ./build/xpu_test_math
 	@LD_LIBRARY_PATH=$(BUILD_DIR) ./build/xpu_test_rasterizer
+	@LD_LIBRARY_PATH=$(BUILD_DIR) ./build/xpu_test_tensor
 	@echo ""
-	@echo "Termux build complete! Run the daemon:"
+	@echo "Termux build complete! Run:"
 	@echo "  LD_LIBRARY_PATH=build ./build/xpu_render_daemon --width 640 --height 480"
-	@echo ""
-	@echo "Run the benchmark:"
 	@echo "  LD_LIBRARY_PATH=build ./build/xpu_benchmark --quick"
+	@echo "  LD_LIBRARY_PATH=build ./build/xpu_nn_train"
 
 tests: $(TESTS)
 
@@ -152,11 +159,18 @@ $(BUILD_DIR)/xpu_test_rasterizer: tests/test_rasterizer.cpp $(BUILD_DIR)/backend
 	@echo "[CXX] $<"
 	$(CXX) $(CXXFLAGS) $< $(BUILD_DIR)/backend/sw_rasterizer.o -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
 
+$(BUILD_DIR)/xpu_test_tensor: tests/test_tensor.cpp $(LIB)
+	@mkdir -p $(dir $@)
+	@echo "[CXX] $<"
+	$(CXX) $(CXXFLAGS) $< -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
+
 check: tests
 	@echo "Running math tests..."
 	@LD_LIBRARY_PATH=$(BUILD_DIR) $(BUILD_DIR)/xpu_test_math
 	@echo "Running rasterizer tests..."
 	@LD_LIBRARY_PATH=$(BUILD_DIR) $(BUILD_DIR)/xpu_test_rasterizer
+	@echo "Running tensor tests..."
+	@LD_LIBRARY_PATH=$(BUILD_DIR) $(BUILD_DIR)/xpu_test_tensor
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)

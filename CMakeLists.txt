@@ -83,6 +83,7 @@ set(XPU_CORE_SOURCES
     src/backend/backend_vulkan.cpp
     src/backend/sw_rasterizer.cpp
     src/math/xpu_math.cpp
+    src/tensor/xpu_tensor.cpp
 )
 
 if(XPU_USE_SIMD)
@@ -157,6 +158,9 @@ if(XPU_BUILD_SAMPLES)
 
     add_executable(xpu_benchmark samples/benchmark/main.cpp)
     target_link_libraries(xpu_benchmark PRIVATE xpu)
+
+    add_executable(xpu_nn_train samples/nn_train/main.cpp)
+    target_link_libraries(xpu_nn_train PRIVATE xpu)
 endif()
 
 # --------------------------------------------------------------------
@@ -171,6 +175,10 @@ if(XPU_BUILD_TESTS)
     add_executable(xpu_test_rasterizer tests/test_rasterizer.cpp)
     target_link_libraries(xpu_test_rasterizer PRIVATE xpu)
     add_test(NAME test_rasterizer COMMAND xpu_test_rasterizer)
+
+    add_executable(xpu_test_tensor tests/test_tensor.cpp)
+    target_link_libraries(xpu_test_tensor PRIVATE xpu)
+    add_test(NAME test_tensor COMMAND xpu_test_tensor)
 endif()
 
 # --------------------------------------------------------------------

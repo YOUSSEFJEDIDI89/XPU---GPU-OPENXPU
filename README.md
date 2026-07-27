@@ -31,6 +31,14 @@ XPU is written in portable C++17 with C ABI exports, so it can be called from C,
   - Z-buffer depth testing
   - Per-vertex color blending with smooth gradients
   - BMP frame output (no external dependencies)
+- **Tensor API for machine learning** — XPU can train real neural networks! Features:
+  - N-dimensional tensors (1D-4D, 16-byte aligned)
+  - SIMD-accelerated matmul (SSE2/AVX2 on x86, NEON on ARM)
+  - Element-wise ops: ReLU, sigmoid, tanh, softmax
+  - Loss functions: MSE, binary cross-entropy
+  - Optimizers: SGD, SGD+momentum, Adam (with bias correction)
+  - He and Glorot weight initialization
+  - Real backpropagation with chain rule (see `samples/nn_train/`)
 - **Background render daemon** — `xpu_render_daemon` runs continuously, rendering a rotating 3D cube frame after frame, like a screen recorder. Useful for benchmarks and continuous rendering scenarios.
 - **Multiple backends, picked at runtime**:
   - `XPU_BACKEND_VULKAN` — fastest on modern Android / desktop Linux / Windows
@@ -237,6 +245,36 @@ This measures:
 - SIMD math throughput (millions of vertex transforms per second)
 - Triangle rasterization throughput (FPS, triangles/sec, pixels/sec)
 - Saves a sample rendered frame to `benchmark_output.bmp`
+
+#### Train a real neural network
+
+XPU can train neural networks, not just render graphics! The included demo trains a 2-layer MLP to solve the XOR problem using real backpropagation + Adam optimizer:
+
+```bash
+LD_LIBRARY_PATH=build ./build/xpu_nn_train
+```
+
+Expected output:
+```
+=== XPU Neural Network Training Demo ===
+Architecture  : 2 → 8 (ReLU) → 1 (Sigmoid)
+Loss          : Binary cross-entropy
+Optimizer     : Adam (lr=0.05)
+
+epoch   loss   predictions
+    0   0.8607   [0,0]→0.50  [0,1]→0.49  [1,0]→0.26  [1,1]→0.51
+  100   0.0045   [0,0]→0.01  [0,1]→1.00  [1,0]→1.00  [1,1]→0.00
+  999   0.0001   [0,0]→0.00  [0,1]→1.00  [1,0]→1.00  [1,1]→0.00
+
+Final accuracy: 100.0% (4/4 correct)
+🎉 SUCCESS! The neural network learned XOR perfectly!
+```
+
+This proves XPU can do real ML training using:
+- SIMD-accelerated matmul (NEON on ARM phones, AVX2 on x86)
+- Real backpropagation with the chain rule
+- Adam optimizer with bias-corrected first/second moments
+- Binary cross-entropy loss
 
 #### Convert rendered frames to MP4 video
 

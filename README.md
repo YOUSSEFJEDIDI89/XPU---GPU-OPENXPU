@@ -347,80 +347,74 @@ make uninstall
 
 #### XPU Shell - Embedded Linux Userspace
 
-XPU includes a real Linux-like shell environment with BusyBox-style commands:
+XPU includes TWO ways to get a Linux environment:
+
+**Option A: Real Linux via proot (RECOMMENDED)**
+Download a REAL Linux distribution rootfs (Ubuntu, Alpine, or Debian) and run it inside XPU using proot — no root required. This is the same technology used by UserLAnd and Andronix apps.
+
+```bash
+# Download a real Linux rootfs (one-time, ~15-350MB depending on distro)
+make install-linux ubuntu    # Ubuntu 22.04 (~350MB)
+make install-linux alpine    # Alpine 3.19 (~15MB, minimal)
+make install-linux debian    # Debian 12 (~280MB)
+
+# Enter the real Linux environment
+./build/xpu_system
+# or after install-system:
+xpu-system
+# or just:
+xpu    # (auto-detects: real Linux if installed, else XPU shell)
+```
+
+Inside, you get a **100% real Linux distribution**:
+- Real `apt` (Ubuntu/Debian) or `apk` (Alpine) package manager
+- Real `bash` shell with full coreutils
+- Real Python, Node, GCC — install whatever you want via `apt install`
+- Real `/proc`, `/sys`, `/dev` (bound from host)
+- Your home directory accessible at `/host-home`
+
+```bash
+# Inside the real Linux environment:
+root@xpu-linux:~# apt update && apt install -y python3
+root@xpu-linux:~# python3 -c "print('Real Python on XPU!')"
+Real Python on XPU!
+root@xpu-linux:~# uname -a
+Linux xpu-linux 5.10.0 #1 SMP x86_64 GNU/Linux
+root@xpu-linux:~# cat /etc/os-release
+PRETTY_NAME="Ubuntu 22.04 LTS"
+```
+
+**How it works (honest explanation):**
+- The Linux **kernel** is the host's (Android's kernel or your Linux kernel) — you cannot boot a custom kernel without root
+- The **userspace** (everything above the kernel: libc, bash, apt, etc.) is a real downloaded distribution
+- `proot` uses `ptrace()` to translate filesystem paths and fake root privileges — no actual root needed
+- This is **exactly** what Termux + proot does, what UserLAnd does, what Andronix does — it's the standard approach for "Linux on Android without root"
+
+**Option B: Lightweight XPU Shell**
+If you don't want to download a full distribution, XPU has its own built-in shell with BusyBox-style commands:
 
 ```bash
 ./build/xpu_shell
 # or after install-system:
-xpu
+xpu-shell
 ```
 
-You'll see a colored prompt:
-```
-Welcome to XPU-Linux 1.0
-An embedded Linux userspace inside XPU.
-Type 'help' for available commands.
+This gives you:
+- Colored prompt `Kernel@xpu:home$` (red "Kernel", blue "xpu")
+- 28 built-in commands: ls, cd, cat, echo, mkdir, rm, cp, mv, ps, kill, free, uname, etc.
+- Sandboxed filesystem at `~/.xpu/rootfs/`
+- Path traversal protection
+- No shell escape (secure)
 
-Kernel@xpu:home$ █
-```
-
-- **Red** "Kernel" + **Blue** "xpu" in the prompt (not funny colors, as requested)
-- **Sandboxed filesystem** at `~/.xpu/rootfs/` — can't escape to real system
-- **Real commands**: ls, cd, cat, echo, mkdir, rm, cp, mv, touch, ps, kill, free, uname, whoami, date, env, head, tail, wc, grep, find, df, chmod, clear, history, tree, help
-- **Path traversal protection** — `../` attacks are blocked
-- **No shell escape** — user input is never passed to `/bin/sh`
+**Option C: XPI Package Manager**
+Both environments support the `xpi` package manager:
 
 ```bash
-Kernel@xpu:home$ xpu
-XPU Shell v1.0.0
-  Root filesystem : /home/user/.xpu/rootfs
-  Current dir     : /home
-  Process ID      : 12345
-  Host            : XPU-Linux (XPU Embedded Userspace)
-  Kernel          : Linux 5.10.0 x86_64
-  This is a real Linux userspace, not a fake.
-
-Kernel@xpu:home$ ls
-bin  etc  home  tmp  usr  var
-
-Kernel@xpu:home$ uname -a
-XPU-Linux 5.10.0 #1 SMP x86_64 GNU/Linux
-
-Kernel@xpu:home$ free
-              total        used        free      shared  buff/cache   available
-Mem:       4138548      380068     3341928           0       416552     3633768
-
-Kernel@xpu:home$ help
-XPU Shell - Available commands:
------------------------------------------------
-  ls          list directory contents
-  cd          change directory
-  ...
-  xpi install <pkg>   install packages via xpi
+xpi install python3    # install via apt/apk
+xpi remove python3
+xpi list
+xpi search python
 ```
-
-**Note**: This is a real Linux userspace (like Termux), not a separate kernel. The host's Linux kernel is shared. All file I/O, process info, and memory queries are real — reading from `/proc`, `/sys`, etc.
-
-#### XPI Package Manager
-
-XPU includes `xpi` — an apt-like package manager:
-
-```bash
-xpi install python3    # install a package (via apt/pkg/apk)
-xpi remove python3     # remove a package
-xpi list               # list installed packages
-xpi search python      # search for packages
-xpi update             # update package database
-xpi upgrade            # upgrade all packages
-xpi info python3       # show package info
-```
-
-`xpi` auto-detects the host's package manager:
-- **Termux**: uses `pkg`
-- **Debian/Ubuntu**: uses `apt-get`
-- **Alpine**: uses `apk`
-- **Fedora**: uses `dnf`
-- **Arch**: uses `pacman`
 
 #### Convert rendered frames to MP4 video
 

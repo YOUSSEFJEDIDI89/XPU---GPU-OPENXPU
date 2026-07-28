@@ -70,10 +70,10 @@ CORE_SOURCES := \
 
 CORE_OBJECTS := $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(CORE_SOURCES))
 
-SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon $(BUILD_DIR)/xpu_benchmark $(BUILD_DIR)/xpu_nn_train $(BUILD_DIR)/xpu_mnist_train $(BUILD_DIR)/xpu_loader $(BUILD_DIR)/xpu_updater $(BUILD_DIR)/xpu_shell $(BUILD_DIR)/xpi
+SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon $(BUILD_DIR)/xpu_benchmark $(BUILD_DIR)/xpu_nn_train $(BUILD_DIR)/xpu_mnist_train $(BUILD_DIR)/xpu_loader $(BUILD_DIR)/xpu_updater $(BUILD_DIR)/xpu_shell $(BUILD_DIR)/xpi $(BUILD_DIR)/xpu_system
 TESTS   := $(BUILD_DIR)/xpu_test_math $(BUILD_DIR)/xpu_test_rasterizer $(BUILD_DIR)/xpu_test_tensor
 
-.PHONY: all clean samples tests check install install-system uninstall daemon termux benchmark
+.PHONY: all clean samples tests check install install-system install-linux uninstall daemon termux benchmark
 
 all: $(LIB) samples tests
 
@@ -139,6 +139,12 @@ $(BUILD_DIR)/xpu_shell: src/shell/xpu_shell.c
 
 # XPI Package Manager (C)
 $(BUILD_DIR)/xpi: src/xpi/xpi.c
+	@mkdir -p $(dir $@)
+	@echo "[CC] $<"
+	$(CC) -O2 -Wall -o $@ $<
+
+# XPU System - real Linux integration via proot (C)
+$(BUILD_DIR)/xpu_system: src/system/xpu_system.c
 	@mkdir -p $(dir $@)
 	@echo "[CC] $<"
 	$(CC) -O2 -Wall -o $@ $<
@@ -215,6 +221,10 @@ install: $(LIB)
 # Install XPU as a system component (Termux or Linux)
 install-system: all
 	@bash install_system.sh
+
+# Download and install a REAL Linux rootfs (Ubuntu/Alpine/Debian)
+install-linux:
+	@bash scripts/install_linux.sh $(filter-out $@,$(MAKECMDGOALS))
 
 uninstall:
 	@xpu-uninstall 2>/dev/null || bash -c 'PREFIX=${PREFIX:-/usr/local}; [ -d /data/data/com.termux ] && PREFIX=/data/data/com.termux/files/usr; rm -f $$PREFIX/lib/libxpu.so $$PREFIX/lib/xpu_version.txt $$PREFIX/bin/xpu-* $$PREFIX/bin/xpu_*; rm -rf $$PREFIX/include/xpu; echo "XPU removed"'

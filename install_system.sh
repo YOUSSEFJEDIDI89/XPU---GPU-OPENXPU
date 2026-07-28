@@ -164,11 +164,19 @@ chmod 755 "$BINDIR/xpu-uninstall"
 # Install shell + xpi
 install -m 755 build/xpu_shell "$BINDIR/xpu-shell" 2>/dev/null || true
 install -m 755 build/xpi "$BINDIR/xpi" 2>/dev/null || true
+install -m 755 build/xpu_system "$BINDIR/xpu-system" 2>/dev/null || true
 
-# Create convenience alias: 'xpu' starts the shell
+# Create convenience alias: 'xpu' enters the real Linux environment
+# (prefers xpu-system if a rootfs is installed, falls back to xpu-shell)
 cat > "$BINDIR/xpu" << 'EOF'
 #!/bin/sh
-exec xpu-shell "$@"
+# If a real Linux rootfs is installed, enter it via proot
+if [ -d "$HOME/.xpu/rootfs-linux/bin" ]; then
+    exec xpu-system "$@"
+else
+    # Fall back to the lightweight XPU shell
+    exec xpu-shell "$@"
+fi
 EOF
 chmod 755 "$BINDIR/xpu"
 
@@ -195,9 +203,11 @@ echo "  Headers : $INCDIR/xpu/"
 echo "  Version : $LIBDIR/xpu_version.txt"
 echo ""
 echo "Commands available from anywhere:"
-echo "  xpu               - enter XPU shell (Kernel@xpu \$)"
-echo "  xpu-shell         - same as above"
-echo "  xpi install <pkg> - install packages (apt-like)"
+echo "  xpu               - enter REAL Linux (Ubuntu/Alpine) if installed, else XPU shell"
+echo "  xpu-system        - enter the real Linux rootfs via proot"
+echo "  xpu-shell         - enter the lightweight XPU shell"
+echo "  xpu-system --status - check if real Linux rootfs is installed"
+echo "  xpi install <pkg> - install packages via apt/apk"
 echo "  xpu-info          - show library info"
 echo "  xpu-check         - verify integrity"
 echo "  xpu-loader        - start loader daemon"
@@ -208,5 +218,9 @@ echo "  xpu-nn-train      - train XOR neural network"
 echo "  xpu-mnist-train   - train MNIST-like CNN"
 echo "  xpu-uninstall     - remove XPU completely"
 echo ""
+echo -e "${YELLOW}To install REAL Linux inside XPU:${NC}"
+echo "  make install-linux ubuntu    # ~350MB, full Ubuntu 22.04"
+echo "  make install-linux alpine    # ~15MB, minimal Alpine 3.19"
+echo "  make install-linux debian    # ~280MB, Debian 12"
+echo ""
 echo -e "${GREEN}XPU is now installed as a system component.${NC}"
-echo -e "Type ${YELLOW}xpu${NC} to enter the XPU shell environment."

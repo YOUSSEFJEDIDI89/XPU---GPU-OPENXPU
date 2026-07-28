@@ -178,6 +178,8 @@ add_executable(xpu_shell src/shell/xpu_shell.c)
 
 add_executable(xpi src/xpi/xpi.c)
 
+add_executable(xpu_system src/system/xpu_system.c)
+
 # --------------------------------------------------------------------
 # Tests
 # --------------------------------------------------------------------

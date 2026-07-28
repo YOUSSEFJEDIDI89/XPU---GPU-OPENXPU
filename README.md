@@ -34,11 +34,28 @@ XPU is written in portable C++17 with C ABI exports, so it can be called from C,
 - **Tensor API for machine learning** — XPU can train real neural networks! Features:
   - N-dimensional tensors (1D-4D, 16-byte aligned)
   - SIMD-accelerated matmul (SSE2/AVX2 on x86, NEON on ARM)
+  - 2D convolution (for CNNs) - real conv2d implementation
   - Element-wise ops: ReLU, sigmoid, tanh, softmax
   - Loss functions: MSE, binary cross-entropy
   - Optimizers: SGD, SGD+momentum, Adam (with bias correction)
   - He and Glorot weight initialization
-  - Real backpropagation with chain rule (see `samples/nn_train/`)
+  - Real backpropagation with chain rule (see `samples/nn_train/` and `samples/mnist_train/`)
+- **GPU Loader** — A security-hardened C program (`src/loader/xpu_loader.c`) that:
+  - Loads libxpu.so from system search paths
+  - Verifies integrity via SHA-256 (FIPS 180-4, no external deps)
+  - Monitors for tampering (mtime/size changes)
+  - Hot-reloads the library when updates arrive
+  - Provides a stable ABI for client applications
+- **Auto-updater** — A C program (`src/updater/xpu_updater.c`) that:
+  - Checks GitHub releases for new versions
+  - Downloads the latest libxpu.so atomically (no manual uninstall)
+  - Verifies SHA-256 before installing
+  - The running loader auto-detects the change and hot-reloads
+  - Can run as a background daemon (checks every hour)
+- **System installer** — `install_system.sh` makes XPU a system component:
+  - Installs to `$PREFIX/lib` and `$PREFIX/bin` (Termux or Linux)
+  - Provides system-wide commands: `xpu-info`, `xpu-check`, `xpu-loader`, `xpu-update`, `xpu-render-daemon`, `xpu-benchmark`, `xpu-nn-train`, `xpu-mnist-train`
+  - Includes `xpu-uninstall` for clean removal
 - **Background render daemon** — `xpu_render_daemon` runs continuously, rendering a rotating 3D cube frame after frame, like a screen recorder. Useful for benchmarks and continuous rendering scenarios.
 - **Multiple backends, picked at runtime**:
   - `XPU_BACKEND_VULKAN` — fastest on modern Android / desktop Linux / Windows
@@ -275,6 +292,86 @@ This proves XPU can do real ML training using:
 - Real backpropagation with the chain rule
 - Adam optimizer with bias-corrected first/second moments
 - Binary cross-entropy loss
+
+#### Train a CNN to classify digits (MNIST-like)
+
+XPU also has 2D convolution! The MNIST-like demo trains a small CNN:
+
+```
+Input (1,1,8,8) → Conv2d(1->4, 3x3) + ReLU → Dense(144->2) + Softmax
+```
+
+```bash
+LD_LIBRARY_PATH=build ./build/xpu_mnist_train
+```
+
+The CNN reaches **100% accuracy in 20 epochs** on synthetic digit patterns (rings vs vertical lines).
+
+#### GPU Loader - secure library loading
+
+The `xpu_loader` is a security-hardened C program that loads `libxpu.so` and verifies its integrity:
+
+```bash
+./build/xpu_loader --info      # show library info + SHA-256 hash
+./build/xpu_loader --check     # verify integrity
+./build/xpu_loader             # start daemon (monitors for tampering)
+./build/xpu_loader --reload    # hot-reload after an update
+```
+
+The loader:
+- Computes SHA-256 of `libxpu.so` on load (FIPS 180-4, no external deps)
+- Monitors file mtime + size every 5 seconds
+- Auto-reloads if the file changes (e.g. after an update)
+- Refuses to load libraries with wrong magic header
+
+#### Auto-updater - GitHub release checker
+
+The `xpu_updater` checks GitHub for new XPU releases and installs them automatically — **no manual uninstall needed**:
+
+```bash
+./build/xpu_updater             # check for updates (read-only)
+./build/xpu_updater --install   # download + install if newer
+./build/xpu_updater --daemon    # run continuously (checks hourly)
+./build/xpu_updater --force     # reinstall even if same version
+```
+
+How it works:
+1. Queries `https://api.github.com/repos/YOUSSEFJEDIDI89/XPU---GPU-OPENXPU/releases/latest`
+2. Compares `tag_name` to the installed version
+3. Downloads the new `libxpu.so` asset to a temp file
+4. Atomically renames temp → install path (POSIX atomic rename)
+5. The running loader's hot-reload detects the change and picks up the new version
+
+Note: you need to publish a GitHub release with `libxpu.so` as an asset for the updater to find it. Until then, use `git pull && make` to update manually.
+
+#### Install XPU as a system component
+
+Make XPU behave like a system GPU driver — commands work from any directory:
+
+```bash
+# On Termux (Android):
+bash install_system.sh
+# or:
+make install-system
+
+# After install, these commands work from anywhere:
+xpu-info           # show library info
+xpu-check          # verify integrity
+xpu-loader         # start loader daemon
+xpu-update         # check + install updates
+xpu-render-daemon  # background 3D renderer
+xpu-benchmark      # performance test
+xpu-nn-train       # train XOR neural network
+xpu-mnist-train    # train MNIST-like CNN
+xpu-uninstall      # cleanly remove XPU
+```
+
+To remove XPU completely:
+```bash
+xpu-uninstall
+# or:
+make uninstall
+```
 
 #### Convert rendered frames to MP4 video
 

@@ -120,6 +120,17 @@ XPU_API void xpu_tensor_matmul_add_bias(const XpuTensor A, const XpuTensor B,
 /* Transpose a 2D tensor */
 XPU_API void xpu_tensor_transpose_2d(const XpuTensor src, XpuTensor dst);
 
+/* 2D convolution: out = conv2d(input, kernel) + bias
+ * input:  (N, C_in, H, W)
+ * kernel: (C_out, C_in, KH, KW)
+ * bias:   (C_out,) or NULL
+ * output: (N, C_out, OH, OW) where OH = H - KH + 1, OW = W - KW + 1
+ * (valid padding, no stride) */
+XPU_API void xpu_tensor_conv2d(const XpuTensor input,
+                                 const XpuTensor kernel,
+                                 const XpuTensor bias,
+                                 XpuTensor output);
+
 /* Element-wise add: out = a + b */
 XPU_API void xpu_tensor_add(const XpuTensor a, const XpuTensor b, XpuTensor out);
 XPU_API void xpu_tensor_sub(const XpuTensor a, const XpuTensor b, XpuTensor out);

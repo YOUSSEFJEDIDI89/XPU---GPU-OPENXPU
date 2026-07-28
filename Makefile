@@ -13,38 +13,38 @@ UNAME_M  := $(shell uname -m)
 # Are we on Termux? (Android's terminal emulator)
 ifeq ($(UNAME_S),Linux)
   ifneq (,$(wildcard /data/data/com.termux))
-    ON_TERMUX := 1
+	ON_TERMUX := 1
   endif
 endif
 
 # Auto-detect architecture for SIMD flags
 ifeq ($(UNAME_M),x86_64)
-    SIMD_FLAGS := -msse2 -mavx2 -mfma -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
-    SIMD_SRC   := src/math/xpu_math_sse.cpp
+	SIMD_FLAGS := -msse2 -mavx2 -mfma -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
+	SIMD_SRC   := src/math/xpu_math_sse.cpp
 else ifeq ($(UNAME_M),i386)
-    SIMD_FLAGS := -msse2 -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
-    SIMD_SRC   := src/math/xpu_math_sse.cpp
+	SIMD_FLAGS := -msse2 -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
+	SIMD_SRC   := src/math/xpu_math_sse.cpp
 else ifeq ($(UNAME_M),aarch64)
-    # AArch64 (modern phones, Apple Silicon, modern Pi)
-    SIMD_FLAGS := -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
-    SIMD_SRC   := src/math/xpu_math_neon.cpp
+	# AArch64 (modern phones, Apple Silicon, modern Pi)
+	SIMD_FLAGS := -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
+	SIMD_SRC   := src/math/xpu_math_neon.cpp
 else ifneq (,$(findstring arm,$(UNAME_M)))
-    # ARMv7 with NEON (older Android phones, Pi 2/3)
-    SIMD_FLAGS := -mfpu=neon -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
-    SIMD_SRC   := src/math/xpu_math_neon.cpp
+	# ARMv7 with NEON (older Android phones, Pi 2/3)
+	SIMD_FLAGS := -mfpu=neon -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
+	SIMD_SRC   := src/math/xpu_math_neon.cpp
 else ifeq ($(UNAME_M),armv8l)
-    # 32-bit userspace on 64-bit ARM (rare, but Termux sometimes reports this)
-    SIMD_FLAGS := -mfpu=neon -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
-    SIMD_SRC   := src/math/xpu_math_neon.cpp
+	# 32-bit userspace on 64-bit ARM (rare, but Termux sometimes reports this)
+	SIMD_FLAGS := -mfpu=neon -DXPU_USE_SIMD_VEC4 -DXPU_USE_SIMD_TRANSFORM
+	SIMD_SRC   := src/math/xpu_math_neon.cpp
 else
-    SIMD_FLAGS :=
-    SIMD_SRC   :=
+	SIMD_FLAGS :=
+	SIMD_SRC   :=
 endif
 
 CXXFLAGS ?= -std=c++17 -O3 -Wall -Wextra -Wno-unused-parameter \
-	    -Wno-unused-variable -Wno-missing-field-initializers \
-	    -Wno-unused-function -fno-strict-aliasing -fPIC \
-	    -Iinclude $(SIMD_FLAGS)
+	-Wno-unused-variable -Wno-missing-field-initializers \
+	-Wno-unused-function -fno-strict-aliasing -fPIC \
+	-Iinclude $(SIMD_FLAGS)
 LDFLAGS  ?= -shared
 LDLIBS   ?=
 
@@ -53,27 +53,27 @@ LIB       := $(BUILD_DIR)/libxpu.so
 RPATH     := -Wl,-rpath,$(abspath $(BUILD_DIR))
 
 CORE_SOURCES := \
-    src/core/xpu_core.cpp \
-    src/core/xpu_buffer.cpp \
-    src/core/xpu_shader.cpp \
-    src/core/xpu_pipeline.cpp \
-    src/core/xpu_command.cpp \
-    src/backend/backend.cpp \
-    src/backend/backend_software.cpp \
-    src/backend/backend_opengl_es.cpp \
-    src/backend/backend_opengl_core.cpp \
-    src/backend/backend_vulkan.cpp \
-    src/backend/sw_rasterizer.cpp \
-    src/math/xpu_math.cpp \
-    src/tensor/xpu_tensor.cpp \
-    $(SIMD_SRC)
+	src/core/xpu_core.cpp \
+	src/core/xpu_buffer.cpp \
+	src/core/xpu_shader.cpp \
+	src/core/xpu_pipeline.cpp \
+	src/core/xpu_command.cpp \
+	src/backend/backend.cpp \
+	src/backend/backend_software.cpp \
+	src/backend/backend_opengl_es.cpp \
+	src/backend/backend_opengl_core.cpp \
+	src/backend/backend_vulkan.cpp \
+	src/backend/sw_rasterizer.cpp \
+	src/math/xpu_math.cpp \
+	src/tensor/xpu_tensor.cpp \
+	$(SIMD_SRC)
 
 CORE_OBJECTS := $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(CORE_SOURCES))
 
-SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon $(BUILD_DIR)/xpu_benchmark $(BUILD_DIR)/xpu_nn_train
+SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon $(BUILD_DIR)/xpu_benchmark $(BUILD_DIR)/xpu_nn_train $(BUILD_DIR)/xpu_mnist_train $(BUILD_DIR)/xpu_loader $(BUILD_DIR)/xpu_updater
 TESTS   := $(BUILD_DIR)/xpu_test_math $(BUILD_DIR)/xpu_test_rasterizer $(BUILD_DIR)/xpu_test_tensor
 
-.PHONY: all clean samples tests check install daemon termux benchmark
+.PHONY: all clean samples tests check install install-system uninstall daemon termux benchmark
 
 all: $(LIB) samples tests
 
@@ -105,13 +105,31 @@ $(BUILD_DIR)/xpu_render_daemon: samples/render_daemon/main.cpp $(BUILD_DIR)/back
 	@mkdir -p $(dir $@)
 	@echo "[CXX] $<"
 	$(CXX) $(CXXFLAGS) $< $(BUILD_DIR)/backend/sw_rasterizer.o \
-	        -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
+		-L$(BUILD_DIR) -lxpu $(RPATH) -o $@
 
 # Neural network training demo
 $(BUILD_DIR)/xpu_nn_train: samples/nn_train/main.cpp $(LIB)
 	@mkdir -p $(dir $@)
 	@echo "[CXX] $<"
 	$(CXX) $(CXXFLAGS) $< -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
+
+# MNIST-like CNN training demo
+$(BUILD_DIR)/xpu_mnist_train: samples/mnist_train/main.cpp $(LIB)
+	@mkdir -p $(dir $@)
+	@echo "[CXX] $<"
+	$(CXX) $(CXXFLAGS) $< -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
+
+# GPU Loader (C, security-hardened)
+$(BUILD_DIR)/xpu_loader: src/loader/xpu_loader.c
+	@mkdir -p $(dir $@)
+	@echo "[CC] $<"
+	$(CC) -O2 -Wall -o $@ $< -ldl
+
+# Auto-updater (C)
+$(BUILD_DIR)/xpu_updater: src/updater/xpu_updater.c
+	@mkdir -p $(dir $@)
+	@echo "[CC] $<"
+	$(CC) -O2 -Wall -o $@ $<
 
 # Convenience target to launch the daemon in the background
 daemon: $(BUILD_DIR)/xpu_render_daemon
@@ -127,7 +145,7 @@ $(BUILD_DIR)/xpu_benchmark: samples/benchmark/main.cpp $(BUILD_DIR)/backend/sw_r
 	@mkdir -p $(dir $@)
 	@echo "[CXX] $<"
 	$(CXX) $(CXXFLAGS) $< $(BUILD_DIR)/backend/sw_rasterizer.o \
-	        -L$(BUILD_DIR) -lxpu $(RPATH) -o $@
+		-L$(BUILD_DIR) -lxpu $(RPATH) -o $@
 
 benchmark: $(BUILD_DIR)/xpu_benchmark
 	@echo "Running XPU benchmark..."
@@ -181,6 +199,13 @@ install: $(LIB)
 	cp $(LIB) $(DESTDIR)/usr/local/lib/
 	cp -r include/xpu $(DESTDIR)/usr/local/include/
 	@ldconfig $(DESTDIR)/usr/local/lib 2>/dev/null || true
+
+# Install XPU as a system component (Termux or Linux)
+install-system: all
+	@bash install_system.sh
+
+uninstall:
+	@xpu-uninstall 2>/dev/null || bash -c 'PREFIX=${PREFIX:-/usr/local}; [ -d /data/data/com.termux ] && PREFIX=/data/data/com.termux/files/usr; rm -f $$PREFIX/lib/libxpu.so $$PREFIX/lib/xpu_version.txt $$PREFIX/bin/xpu-* $$PREFIX/bin/xpu_*; rm -rf $$PREFIX/include/xpu; echo "XPU removed"'
 
 clean:
 	rm -rf $(BUILD_DIR) render_output render_daemon.log

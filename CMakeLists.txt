@@ -161,7 +161,18 @@ if(XPU_BUILD_SAMPLES)
 
     add_executable(xpu_nn_train samples/nn_train/main.cpp)
     target_link_libraries(xpu_nn_train PRIVATE xpu)
+
+    add_executable(xpu_mnist_train samples/mnist_train/main.cpp)
+    target_link_libraries(xpu_mnist_train PRIVATE xpu)
 endif()
+
+# --------------------------------------------------------------------
+# Loader + Updater (plain C, no libxpu dependency)
+# --------------------------------------------------------------------
+add_executable(xpu_loader src/loader/xpu_loader.c)
+target_link_libraries(xpu_loader PRIVATE ${CMAKE_DL_LIBS})
+
+add_executable(xpu_updater src/updater/xpu_updater.c)
 
 # --------------------------------------------------------------------
 # Tests

@@ -410,6 +410,54 @@ extern "C" void xpu_tensor_transpose_2d(const XpuTensor src, XpuTensor dst) {
     }
 }
 
+/* 2D convolution - the workhorse for CNNs */
+extern "C" void xpu_tensor_conv2d(const XpuTensor input,
+                                    const XpuTensor kernel,
+                                    const XpuTensor bias,
+                                    XpuTensor output) {
+    if (!input || !kernel || !output) return;
+    if (input->ndim != 4 || kernel->ndim != 4 || output->ndim != 4) return;
+
+    uint32_t N    = input->shape[0];
+    uint32_t Cin  = input->shape[1];
+    uint32_t H    = input->shape[2];
+    uint32_t W    = input->shape[3];
+    uint32_t Cout = kernel->shape[0];
+    uint32_t Cin2 = kernel->shape[1];
+    uint32_t KH   = kernel->shape[2];
+    uint32_t KW   = kernel->shape[3];
+    if (Cin != Cin2) return;
+    uint32_t OH = H - KH + 1;
+    uint32_t OW = W - KW + 1;
+    if (output->shape[0] != N || output->shape[1] != Cout ||
+        output->shape[2] != OH || output->shape[3] != OW) return;
+
+    const float* in  = input->data;
+    const float* wt  = kernel->data;
+    float* out = output->data;
+
+    for (uint32_t n = 0; n < N; ++n) {
+        for (uint32_t co = 0; co < Cout; ++co) {
+            for (uint32_t oh = 0; oh < OH; ++oh) {
+                for (uint32_t ow = 0; ow < OW; ++ow) {
+                    float sum = bias ? bias->data[co] : 0.0f;
+                    for (uint32_t ci = 0; ci < Cin; ++ci) {
+                        for (uint32_t kh = 0; kh < KH; ++kh) {
+                            for (uint32_t kw = 0; kw < KW; ++kw) {
+                                size_t in_idx = (((size_t)n * Cin + ci) * H + (oh + kh)) * W + (ow + kw);
+                                size_t wt_idx = (((size_t)co * Cin + ci) * KH + kh) * KW + kw;
+                                sum += in[in_idx] * wt[wt_idx];
+                            }
+                        }
+                    }
+                    size_t out_idx = (((size_t)n * Cout + co) * OH + oh) * OW + ow;
+                    out[out_idx] = sum;
+                }
+            }
+        }
+    }
+}
+
 extern "C" void xpu_tensor_add(const XpuTensor a, const XpuTensor b, XpuTensor out) {
     if (!a || !b || !out) return;
     size_t n = a->size;

@@ -174,6 +174,10 @@ target_link_libraries(xpu_loader PRIVATE ${CMAKE_DL_LIBS})
 
 add_executable(xpu_updater src/updater/xpu_updater.c)
 
+add_executable(xpu_shell src/shell/xpu_shell.c)
+
+add_executable(xpi src/xpi/xpi.c)
+
 # --------------------------------------------------------------------
 # Tests
 # --------------------------------------------------------------------

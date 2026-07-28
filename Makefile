@@ -70,7 +70,7 @@ CORE_SOURCES := \
 
 CORE_OBJECTS := $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(CORE_SOURCES))
 
-SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon $(BUILD_DIR)/xpu_benchmark $(BUILD_DIR)/xpu_nn_train $(BUILD_DIR)/xpu_mnist_train $(BUILD_DIR)/xpu_loader $(BUILD_DIR)/xpu_updater
+SAMPLES := $(BUILD_DIR)/xpu_hello_triangle $(BUILD_DIR)/xpu_compute_demo $(BUILD_DIR)/xpu_render_daemon $(BUILD_DIR)/xpu_benchmark $(BUILD_DIR)/xpu_nn_train $(BUILD_DIR)/xpu_mnist_train $(BUILD_DIR)/xpu_loader $(BUILD_DIR)/xpu_updater $(BUILD_DIR)/xpu_shell $(BUILD_DIR)/xpi
 TESTS   := $(BUILD_DIR)/xpu_test_math $(BUILD_DIR)/xpu_test_rasterizer $(BUILD_DIR)/xpu_test_tensor
 
 .PHONY: all clean samples tests check install install-system uninstall daemon termux benchmark
@@ -127,6 +127,18 @@ $(BUILD_DIR)/xpu_loader: src/loader/xpu_loader.c
 
 # Auto-updater (C)
 $(BUILD_DIR)/xpu_updater: src/updater/xpu_updater.c
+	@mkdir -p $(dir $@)
+	@echo "[CC] $<"
+	$(CC) -O2 -Wall -o $@ $<
+
+# XPU Shell - embedded Linux-like userspace (C)
+$(BUILD_DIR)/xpu_shell: src/shell/xpu_shell.c
+	@mkdir -p $(dir $@)
+	@echo "[CC] $<"
+	$(CC) -O2 -Wall -o $@ $<
+
+# XPI Package Manager (C)
+$(BUILD_DIR)/xpi: src/xpi/xpi.c
 	@mkdir -p $(dir $@)
 	@echo "[CC] $<"
 	$(CC) -O2 -Wall -o $@ $<

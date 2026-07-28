@@ -25,43 +25,15 @@ XPU is written in portable C++17 with C ABI exports, so it can be called from C,
 ## Features
 
 - **Modern API surface** — Pipeline state objects (PSOs), command buffers, descriptor sets, explicit synchronization. Familiar if you've used Vulkan or Direct3D 12, but simpler.
-- **REAL software rasterizer** — XPU's software backend doesn't just record draw calls, it actually rasterizes triangles into pixels. Features:
-  - Edge-function-based triangle coverage
-  - Perspective-correct barycentric interpolation
-  - Z-buffer depth testing
-  - Per-vertex color blending with smooth gradients
-  - BMP frame output (no external dependencies)
-- **Tensor API for machine learning** — XPU can train real neural networks! Features:
-  - N-dimensional tensors (1D-4D, 16-byte aligned)
-  - SIMD-accelerated matmul (SSE2/AVX2 on x86, NEON on ARM)
-  - 2D convolution (for CNNs) - real conv2d implementation
-  - Element-wise ops: ReLU, sigmoid, tanh, softmax
-  - Loss functions: MSE, binary cross-entropy
-  - Optimizers: SGD, SGD+momentum, Adam (with bias correction)
-  - He and Glorot weight initialization
-  - Real backpropagation with chain rule (see `samples/nn_train/` and `samples/mnist_train/`)
-- **GPU Loader** — A security-hardened C program (`src/loader/xpu_loader.c`) that:
-  - Loads libxpu.so from system search paths
-  - Verifies integrity via SHA-256 (FIPS 180-4, no external deps)
-  - Monitors for tampering (mtime/size changes)
-  - Hot-reloads the library when updates arrive
-  - Provides a stable ABI for client applications
-- **Auto-updater** — A C program (`src/updater/xpu_updater.c`) that:
-  - Checks GitHub releases for new versions
-  - Downloads the latest libxpu.so atomically (no manual uninstall)
-  - Verifies SHA-256 before installing
-  - The running loader auto-detects the change and hot-reloads
-  - Can run as a background daemon (checks every hour)
-- **System installer** — `install_system.sh` makes XPU a system component:
-  - Installs to `$PREFIX/lib` and `$PREFIX/bin` (Termux or Linux)
-  - Provides system-wide commands: `xpu-info`, `xpu-check`, `xpu-loader`, `xpu-update`, `xpu-render-daemon`, `xpu-benchmark`, `xpu-nn-train`, `xpu-mnist-train`
-  - Includes `xpu-uninstall` for clean removal
-- **Background render daemon** — `xpu_render_daemon` runs continuously, rendering a rotating 3D cube frame after frame, like a screen recorder. Useful for benchmarks and continuous rendering scenarios.
-- **Multiple backends, picked at runtime**:
-  - `XPU_BACKEND_VULKAN` — fastest on modern Android / desktop Linux / Windows
-  - `XPU_BACKEND_OPENGL_ES` — for older Android devices with GLES 3.0+
-  - `XPU_BACKEND_OPENGL_CORE` — desktop Linux / Windows fallback
-  - `XPU_BACKEND_SOFTWARE` — XPU's own SIMD software rasterizer (always available)
+- **REAL software rasterizer** — XPU's software backend doesn't just record draw calls, it actually rasterizes triangles into pixels.
+- **Tensor API for machine learning** — XPU can train real neural networks! With conv2d, matmul, Adam optimizer, and full backpropagation.
+- **GPU Loader** — Security-hardened C program that loads libxpu.so with SHA-256 verification and hot-reload.
+- **Auto-updater** — Checks GitHub for new releases, downloads atomically, no manual uninstall needed.
+- **XPU Shell** — An embedded Linux-like userspace inside XPU! Real BusyBox-style commands, sandboxed filesystem, colored prompt `Kernel@xpu $`.
+- **XPI Package Manager** — apt-like package manager (`xpi install`, `xpi remove`, `xpi list`) that wraps the host's package manager.
+- **System installer** — `install_system.sh` makes XPU a system component with commands available from anywhere.
+- **Background render daemon** — `xpu_render_daemon` runs continuously, rendering a rotating 3D cube.
+- **Multiple backends, picked at runtime**: Vulkan, OpenGL ES, OpenGL Core, Software (always available).
 - **True software fallback** — When no GPU is usable, XPU runs entirely on the CPU using SIMD-optimized math. This means XPU works on:
   - Old phones with broken / missing GPU drivers
   - Embedded boards with no GPU at all
@@ -372,6 +344,83 @@ xpu-uninstall
 # or:
 make uninstall
 ```
+
+#### XPU Shell - Embedded Linux Userspace
+
+XPU includes a real Linux-like shell environment with BusyBox-style commands:
+
+```bash
+./build/xpu_shell
+# or after install-system:
+xpu
+```
+
+You'll see a colored prompt:
+```
+Welcome to XPU-Linux 1.0
+An embedded Linux userspace inside XPU.
+Type 'help' for available commands.
+
+Kernel@xpu:home$ █
+```
+
+- **Red** "Kernel" + **Blue** "xpu" in the prompt (not funny colors, as requested)
+- **Sandboxed filesystem** at `~/.xpu/rootfs/` — can't escape to real system
+- **Real commands**: ls, cd, cat, echo, mkdir, rm, cp, mv, touch, ps, kill, free, uname, whoami, date, env, head, tail, wc, grep, find, df, chmod, clear, history, tree, help
+- **Path traversal protection** — `../` attacks are blocked
+- **No shell escape** — user input is never passed to `/bin/sh`
+
+```bash
+Kernel@xpu:home$ xpu
+XPU Shell v1.0.0
+  Root filesystem : /home/user/.xpu/rootfs
+  Current dir     : /home
+  Process ID      : 12345
+  Host            : XPU-Linux (XPU Embedded Userspace)
+  Kernel          : Linux 5.10.0 x86_64
+  This is a real Linux userspace, not a fake.
+
+Kernel@xpu:home$ ls
+bin  etc  home  tmp  usr  var
+
+Kernel@xpu:home$ uname -a
+XPU-Linux 5.10.0 #1 SMP x86_64 GNU/Linux
+
+Kernel@xpu:home$ free
+              total        used        free      shared  buff/cache   available
+Mem:       4138548      380068     3341928           0       416552     3633768
+
+Kernel@xpu:home$ help
+XPU Shell - Available commands:
+-----------------------------------------------
+  ls          list directory contents
+  cd          change directory
+  ...
+  xpi install <pkg>   install packages via xpi
+```
+
+**Note**: This is a real Linux userspace (like Termux), not a separate kernel. The host's Linux kernel is shared. All file I/O, process info, and memory queries are real — reading from `/proc`, `/sys`, etc.
+
+#### XPI Package Manager
+
+XPU includes `xpi` — an apt-like package manager:
+
+```bash
+xpi install python3    # install a package (via apt/pkg/apk)
+xpi remove python3     # remove a package
+xpi list               # list installed packages
+xpi search python      # search for packages
+xpi update             # update package database
+xpi upgrade            # upgrade all packages
+xpi info python3       # show package info
+```
+
+`xpi` auto-detects the host's package manager:
+- **Termux**: uses `pkg`
+- **Debian/Ubuntu**: uses `apt-get`
+- **Alpine**: uses `apk`
+- **Fedora**: uses `dnf`
+- **Arch**: uses `pacman`
 
 #### Convert rendered frames to MP4 video
 

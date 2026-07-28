@@ -52,16 +52,45 @@ static const char* kInstallPaths[] = {
 
 /* ------------------------------------------------------------------ */
 /* HTTP client using system curl/wget                                */
-/* We use system tools to avoid TLS complexity.                       */
+/* SECURITY: URLs are validated to prevent command injection.         */
+/* Only http/https URLs with safe characters are allowed.             */
 /* ------------------------------------------------------------------ */
 
+static bool url_is_safe(const char* url) {
+    if (!url || !*url) return false;
+    /* Must start with http:// or https:// */
+    if (strncmp(url, "http://", 7) != 0 && strncmp(url, "https://", 8) != 0) {
+        return false;
+    }
+    /* Reject any shell metacharacters to prevent command injection */
+    for (const char* p = url; *p; ++p) {
+        char c = *p;
+        if (c == ';' || c == '|' || c == '&' || c == '$' || c == '`' ||
+            c == '(' || c == ')' || c == '<' || c == '>' || c == '"' ||
+            c == '\'' || c == '\\' || c == '\n' || c == '\r' || c == '*'
+            || c == '?' || c == '[' || c == ']' || c == '{' || c == '}') {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool download_to_file(const char* url, const char* dest_path) {
+    if (!url_is_safe(url)) {
+        fprintf(stderr, "[updater] refusing unsafe URL\n");
+        return false;
+    }
+    int rc = system(NULL);  /* check if shell is available */
+    if (rc == 0) {
+        fprintf(stderr, "[updater] shell not available\n");
+        return false;
+    }
     char cmd[2048];
-    /* Try curl first (preferred) */
+    /* Try curl first (preferred) - URL is already validated */
     snprintf(cmd, sizeof(cmd),
         "curl -sL -A '%s' -o '%s' '%s' 2>/dev/null",
         XPU_USER_AGENT, dest_path, url);
-    int rc = system(cmd);
+    rc = system(cmd);
     if (rc == 0) {
         struct stat st;
         if (stat(dest_path, &st) == 0 && st.st_size > 0) return true;

@@ -152,11 +152,25 @@ rm -f "$PREFIX/bin/xpu-nn-train"
 rm -f "$PREFIX/bin/xpu-nn-train-bin"
 rm -f "$PREFIX/bin/xpu-mnist-train"
 rm -f "$PREFIX/bin/xpu-mnist-train-bin"
+rm -f "$PREFIX/bin/xpu-shell"
+rm -f "$PREFIX/bin/xpi"
 rm -f "$PREFIX/bin/xpu-uninstall"
 rm -rf "$PREFIX/include/xpu"
-echo "XPU removed. (build/ directory in source tree is kept)"
+echo "XPU removed. (~/.xpu/rootfs is kept - remove manually if needed)"
+echo "  rm -rf ~/.xpu"
 UNINST_EOF
 chmod 755 "$BINDIR/xpu-uninstall"
+
+# Install shell + xpi
+install -m 755 build/xpu_shell "$BINDIR/xpu-shell" 2>/dev/null || true
+install -m 755 build/xpi "$BINDIR/xpi" 2>/dev/null || true
+
+# Create convenience alias: 'xpu' starts the shell
+cat > "$BINDIR/xpu" << 'EOF'
+#!/bin/sh
+exec xpu-shell "$@"
+EOF
+chmod 755 "$BINDIR/xpu"
 
 # 5. Update shared library cache
 echo -e "${YELLOW}[5/5] Updating library cache...${NC}"
@@ -181,18 +195,18 @@ echo "  Headers : $INCDIR/xpu/"
 echo "  Version : $LIBDIR/xpu_version.txt"
 echo ""
 echo "Commands available from anywhere:"
-echo "  xpu-info           - show library info"
-echo "  xpu-check          - verify integrity"
-echo "  xpu-loader         - start loader daemon"
-echo "  xpu-update         - check + install updates"
-echo "  xpu-render-daemon  - background renderer"
-echo "  xpu-benchmark      - performance test"
-echo "  xpu-nn-train       - train XOR neural network"
-echo "  xpu-mnist-train    - train MNIST-like CNN"
-echo "  xpu-uninstall      - remove XPU completely"
-echo ""
-echo -e "${YELLOW}Note:${NC} Some binaries may need rebuilding. To rebuild:"
-echo "  make && bash install_system.sh --force"
+echo "  xpu               - enter XPU shell (Kernel@xpu \$)"
+echo "  xpu-shell         - same as above"
+echo "  xpi install <pkg> - install packages (apt-like)"
+echo "  xpu-info          - show library info"
+echo "  xpu-check         - verify integrity"
+echo "  xpu-loader        - start loader daemon"
+echo "  xpu-update        - check + install updates"
+echo "  xpu-render-daemon - background 3D renderer"
+echo "  xpu-benchmark     - performance test"
+echo "  xpu-nn-train      - train XOR neural network"
+echo "  xpu-mnist-train   - train MNIST-like CNN"
+echo "  xpu-uninstall     - remove XPU completely"
 echo ""
 echo -e "${GREEN}XPU is now installed as a system component.${NC}"
-echo "Open a NEW terminal to ensure commands are on PATH."
+echo -e "Type ${YELLOW}xpu${NC} to enter the XPU shell environment."

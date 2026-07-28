@@ -136,22 +136,17 @@ make check
 # or
 LD_LIBRARY_PATH=build ./build/xpu_test_math
 LD_LIBRARY_PATH=build ./build/xpu_test_rasterizer
+LD_LIBRARY_PATH=build ./build/xpu_test_tensor
 ```
 
-Expected output:
-```
-=== XPU Math Tests ===
-CPU arch: x86 AVX-512
-ok   : vec4_add
-ok   : vec4_sub
-... (15 more)
-All tests passed!
-
-Non-black pixels: 1250 / 10000
-  sample 0: R=6 G=1 B=247 A=255
-  ...
-PASS: triangle rasterized successfully
-```
+Having trouble? See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues:
+- `/tmp/` not found on Termux
+- Download failures
+- `armhf` vs `arm64` architecture detection
+- proot installation
+- locale warnings
+- cmake errors
+- and more
 
 ### Run the render daemon (continuous background rendering)
 

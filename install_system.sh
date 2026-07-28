@@ -71,6 +71,13 @@ fi
 echo -e "${YELLOW}[2/5] Creating directories...${NC}"
 mkdir -p "$LIBDIR" "$BINDIR" "$INCDIR/xpu"
 
+# On Termux, create a /tmp symlink for compatibility with scripts that
+# hardcode /tmp (we don't anymore, but this helps third-party tools)
+if [ "$ON_TERMUX" = "1" ] && [ ! -d "/tmp" ]; then
+    mkdir -p "$PREFIX/tmp" 2>/dev/null || true
+    export TMPDIR="$PREFIX/tmp"
+fi
+
 # 3. Install library + headers
 echo -e "${YELLOW}[3/5] Installing library + headers...${NC}"
 cp build/libxpu.so "$LIBDIR/libxpu.so"
